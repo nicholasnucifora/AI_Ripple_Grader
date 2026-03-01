@@ -122,8 +122,14 @@ if settings.env == "development":
 # ---------------------------------------------------------------------------
 
 from app.api.auth import router as auth_router  # noqa: E402
+from app.api.classes import router as classes_router  # noqa: E402
+from app.api.assignments import router as assignments_router  # noqa: E402
+from app.api.submissions import router as submissions_router  # noqa: E402
 
 app.include_router(auth_router)
+app.include_router(classes_router)
+app.include_router(assignments_router)
+app.include_router(submissions_router)
 
 
 # ---------------------------------------------------------------------------

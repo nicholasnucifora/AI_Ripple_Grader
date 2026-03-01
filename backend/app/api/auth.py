@@ -108,7 +108,7 @@ def local_login_page():
         credentials: 'include',
       });
       if (res.ok) {
-        window.location.href = '/';
+        window.location.href = '/auth/me';
       } else {
         const body = await res.json();
         document.getElementById('msg').textContent =
