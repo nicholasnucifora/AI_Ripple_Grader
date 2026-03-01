@@ -1,10 +1,12 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useAuth } from '../contexts/AuthContext'
 
 const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 
 export default function LoginPage() {
   const navigate = useNavigate()
+  const { refresh } = useAuth()
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
@@ -26,6 +28,7 @@ export default function LoginPage() {
         setError(body.detail || 'Login failed')
         return
       }
+      await refresh()
       navigate('/', { replace: true })
     } catch {
       setError('Could not reach the server. Is the backend running?')

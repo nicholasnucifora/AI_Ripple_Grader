@@ -1,19 +1,18 @@
 import { useEffect, useState } from 'react'
-import { useParams, Link } from 'react-router-dom'
+import { useParams, Link, useNavigate } from 'react-router-dom'
 import Layout from '../components/Layout'
-import CreateAssignmentModal from '../components/CreateAssignmentModal'
 import SubmitAssignmentModal from '../components/SubmitAssignmentModal'
 import { useAuth } from '../contexts/AuthContext'
 import { api } from '../api/client'
 
 export default function AssignmentPage() {
   const { id: classId, aid: assignmentId } = useParams()
+  const navigate = useNavigate()
   const { user } = useAuth()
   const [assignment, setAssignment] = useState(null)
   const [submissions, setSubmissions] = useState([])
   const [loadingAssignment, setLoadingAssignment] = useState(true)
   const [loadingSubmissions, setLoadingSubmissions] = useState(true)
-  const [showEdit, setShowEdit] = useState(false)
   const [showSubmit, setShowSubmit] = useState(false)
   const [myMemberRole, setMyMemberRole] = useState(null)
 
@@ -38,11 +37,6 @@ export default function AssignmentPage() {
 
   const isTeacher = myMemberRole === 'teacher'
   const mySubmission = submissions.find((s) => s.student_user_id === user?.user_id)
-
-  function handleAssignmentSaved(updated) {
-    setAssignment(updated)
-    setShowEdit(false)
-  }
 
   function handleSubmitted(submission) {
     setSubmissions((prev) => [...prev, submission])
@@ -83,7 +77,7 @@ export default function AssignmentPage() {
           </div>
           {isTeacher && (
             <button
-              onClick={() => setShowEdit(true)}
+              onClick={() => navigate(`/classes/${classId}/assignments/${assignmentId}/edit`)}
               className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 shrink-0"
             >
               Edit
@@ -127,14 +121,6 @@ export default function AssignmentPage() {
         </section>
       </div>
 
-      {showEdit && (
-        <CreateAssignmentModal
-          classId={classId}
-          initial={assignment}
-          onClose={() => setShowEdit(false)}
-          onSaved={handleAssignmentSaved}
-        />
-      )}
       {showSubmit && (
         <SubmitAssignmentModal
           classId={classId}

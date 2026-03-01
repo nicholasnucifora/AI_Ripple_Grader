@@ -143,3 +143,15 @@ AI_Ripple_Grader/
 - `backend/app/models/__init__.py` — **must import every model module** so Alembic auto-detects schema changes
 - `backend/alembic/env.py` — reads `DATABASE_URL` from `settings`, not from `alembic.ini`
 - `frontend/src/api/client.js` — single place to change if API shape evolves; all components call through here
+
+---
+
+## Git Workflow
+
+After every change, run from the repo root:
+
+```bash
+git add . && git commit -m "<relevant message describing the change>" && git push
+```
+
+The commit message should describe the specific change made in that session.

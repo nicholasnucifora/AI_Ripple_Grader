@@ -4,6 +4,7 @@ import LoginPage from './pages/LoginPage'
 import DashboardPage from './pages/DashboardPage'
 import ClassPage from './pages/ClassPage'
 import AssignmentPage from './pages/AssignmentPage'
+import AssignmentFormPage from './pages/AssignmentFormPage'
 
 function AppRoutes() {
   const { loading } = useAuth()
@@ -19,7 +20,9 @@ function AppRoutes() {
       <Route path="/login" element={<LoginPage />} />
       <Route path="/" element={<DashboardPage />} />
       <Route path="/classes/:id" element={<ClassPage />} />
+      <Route path="/classes/:id/assignments/new" element={<AssignmentFormPage />} />
       <Route path="/classes/:id/assignments/:aid" element={<AssignmentPage />} />
+      <Route path="/classes/:id/assignments/:aid/edit" element={<AssignmentFormPage />} />
     </Routes>
   )
 }

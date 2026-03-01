@@ -1,19 +1,18 @@
 import { useEffect, useState } from 'react'
-import { useParams, Link } from 'react-router-dom'
+import { useParams, Link, useNavigate } from 'react-router-dom'
 import Layout from '../components/Layout'
 import AddMemberModal from '../components/AddMemberModal'
-import CreateAssignmentModal from '../components/CreateAssignmentModal'
 import { useAuth } from '../contexts/AuthContext'
 import { api } from '../api/client'
 
 export default function ClassPage() {
   const { id } = useParams()
+  const navigate = useNavigate()
   const { user } = useAuth()
   const [cls, setCls] = useState(null)
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState('assignments')
   const [showAddMember, setShowAddMember] = useState(false)
-  const [showCreateAssignment, setShowCreateAssignment] = useState(false)
 
   useEffect(() => {
     api.getClass(id)
@@ -30,11 +29,6 @@ export default function ClassPage() {
   function handleMemberAdded(member) {
     setCls((prev) => ({ ...prev, members: [...prev.members, member] }))
     setShowAddMember(false)
-  }
-
-  function handleAssignmentCreated(assignment) {
-    setCls((prev) => ({ ...prev, assignments: [...prev.assignments, assignment] }))
-    setShowCreateAssignment(false)
   }
 
   return (
@@ -70,7 +64,7 @@ export default function ClassPage() {
             classId={id}
             assignments={cls.assignments}
             isTeacher={isTeacher}
-            onNew={() => setShowCreateAssignment(true)}
+            onNew={() => navigate(`/classes/${id}/assignments/new`)}
           />
         )}
         {tab === 'members' && (
@@ -87,13 +81,6 @@ export default function ClassPage() {
           classId={id}
           onClose={() => setShowAddMember(false)}
           onAdded={handleMemberAdded}
-        />
-      )}
-      {showCreateAssignment && (
-        <CreateAssignmentModal
-          classId={id}
-          onClose={() => setShowCreateAssignment(false)}
-          onSaved={handleAssignmentCreated}
         />
       )}
     </Layout>
