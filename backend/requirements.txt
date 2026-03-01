@@ -1,0 +1,9 @@
+fastapi
+uvicorn[standard]
+sqlalchemy
+alembic
+anthropic
+pydantic-settings
+python-dotenv
+httpx
+bcrypt
