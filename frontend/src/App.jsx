@@ -1,10 +1,15 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, useParams } from 'react-router-dom'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import LoginPage from './pages/LoginPage'
 import DashboardPage from './pages/DashboardPage'
 import ClassPage from './pages/ClassPage'
 import AssignmentPage from './pages/AssignmentPage'
 import AssignmentFormPage from './pages/AssignmentFormPage'
+
+function EditRedirect() {
+  const { id, aid } = useParams()
+  return <Navigate to={`/classes/${id}?tab=admin&open=${aid}`} replace />
+}
 
 function AppRoutes() {
   const { loading } = useAuth()
@@ -22,6 +27,7 @@ function AppRoutes() {
       <Route path="/classes/:id" element={<ClassPage />} />
       <Route path="/classes/:id/assignments/new" element={<AssignmentFormPage />} />
       <Route path="/classes/:id/assignments/:aid" element={<AssignmentPage />} />
+      <Route path="/classes/:id/assignments/:aid/edit" element={<EditRedirect />} />
     </Routes>
   )
 }

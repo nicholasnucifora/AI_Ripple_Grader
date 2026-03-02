@@ -1,15 +1,24 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import RubricIngestUploader from './RubricIngestUploader'
 import RubricEditor from './RubricEditor'
 import { api } from '../api/client'
 
-export default function AdminAssignmentsTab({ classId, classData }) {
+export default function AdminAssignmentsTab({ classId, classData, initialOpenId }) {
   const [assignments, setAssignments] = useState(classData.assignments)
   const [expandedId, setExpandedId] = useState(null)
   // Per-assignment edit state: { [assignmentId]: { title, description, strictness, rubric, rubricExists } }
   const [editState, setEditState] = useState({})
   const [saving, setSaving] = useState({})
   const [errors, setErrors] = useState({})
+
+  // Auto-expand the assignment referenced by ?open= param (from /edit redirect)
+  useEffect(() => {
+    if (!initialOpenId) return
+    const id = parseInt(initialOpenId, 10)
+    const target = classData.assignments.find((a) => a.id === id)
+    if (target) handleExpand(target)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialOpenId])
 
   async function handleExpand(assignment) {
     if (expandedId === assignment.id) {

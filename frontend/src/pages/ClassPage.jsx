@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useParams, Link, useNavigate } from 'react-router-dom'
+import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom'
 import Layout from '../components/Layout'
 import AddMemberModal from '../components/AddMemberModal'
 import AdminAssignmentsTab from '../components/AdminAssignmentsTab'
@@ -9,11 +9,13 @@ import { api } from '../api/client'
 export default function ClassPage() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const { user } = useAuth()
   const [cls, setCls] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [tab, setTab] = useState('assignments')
+  const [tab, setTab] = useState(searchParams.get('tab') || 'assignments')
   const [showAddMember, setShowAddMember] = useState(false)
+  const initialOpenId = searchParams.get('open')
 
   useEffect(() => {
     api.getClass(id)
@@ -69,7 +71,7 @@ export default function ClassPage() {
           />
         )}
         {tab === 'admin' && isTeacher && (
-          <AdminAssignmentsTab classId={id} classData={cls} />
+          <AdminAssignmentsTab classId={id} classData={cls} initialOpenId={initialOpenId} />
         )}
         {tab === 'members' && (
           <MembersTab
