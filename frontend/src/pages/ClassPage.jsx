@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import Layout from '../components/Layout'
 import AddMemberModal from '../components/AddMemberModal'
+import AdminAssignmentsTab from '../components/AdminAssignmentsTab'
 import { useAuth } from '../contexts/AuthContext'
 import { api } from '../api/client'
 
@@ -44,7 +45,7 @@ export default function ClassPage() {
 
         {/* Tab bar */}
         <div className="flex gap-1 border-b border-gray-200 mb-6">
-          {['assignments', 'members'].map((t) => (
+          {(isTeacher ? ['assignments', 'admin', 'members'] : ['assignments', 'members']).map((t) => (
             <button
               key={t}
               onClick={() => setTab(t)}
@@ -66,6 +67,9 @@ export default function ClassPage() {
             isTeacher={isTeacher}
             onNew={() => navigate(`/classes/${id}/assignments/new`)}
           />
+        )}
+        {tab === 'admin' && isTeacher && (
+          <AdminAssignmentsTab classId={id} classData={cls} />
         )}
         {tab === 'members' && (
           <MembersTab

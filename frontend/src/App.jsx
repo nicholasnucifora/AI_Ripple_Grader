@@ -22,7 +22,6 @@ function AppRoutes() {
       <Route path="/classes/:id" element={<ClassPage />} />
       <Route path="/classes/:id/assignments/new" element={<AssignmentFormPage />} />
       <Route path="/classes/:id/assignments/:aid" element={<AssignmentPage />} />
-      <Route path="/classes/:id/assignments/:aid/edit" element={<AssignmentFormPage />} />
     </Routes>
   )
 }

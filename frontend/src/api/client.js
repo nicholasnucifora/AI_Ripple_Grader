@@ -53,4 +53,22 @@ export const api = {
     }),
   getSubmission: (classId, assignmentId, submissionId) =>
     request(`/classes/${classId}/assignments/${assignmentId}/submissions/${submissionId}`),
+
+  // Rubric ingest (multipart — let browser set Content-Type with boundary)
+  ingestRubric: (formData) =>
+    request('/rubrics/ingest', { method: 'POST', headers: {}, body: formData }),
+
+  // Rubric CRUD
+  getRubric: (classId, assignmentId) =>
+    request(`/classes/${classId}/assignments/${assignmentId}/rubric`),
+  saveRubric: (classId, assignmentId, body) =>
+    request(`/classes/${classId}/assignments/${assignmentId}/rubric`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  updateRubric: (classId, assignmentId, body) =>
+    request(`/classes/${classId}/assignments/${assignmentId}/rubric`, {
+      method: 'PUT',
+      body: JSON.stringify(body),
+    }),
 }

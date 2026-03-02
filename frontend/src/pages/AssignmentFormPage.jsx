@@ -1,51 +1,35 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import Layout from '../components/Layout'
+import RubricIngestUploader from '../components/RubricIngestUploader'
+import RubricEditor from '../components/RubricEditor'
 import { api } from '../api/client'
 
 export default function AssignmentFormPage() {
-  const { id: classId, aid: assignmentId } = useParams()
+  const { id: classId } = useParams()
   const navigate = useNavigate()
-  const editing = !!assignmentId
 
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
-  const [markingCriteria, setMarkingCriteria] = useState('')
   const [strictness, setStrictness] = useState('standard')
-  const [loading, setLoading] = useState(editing)
+  const [rubric, setRubric] = useState(null)
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
-
-  useEffect(() => {
-    if (!editing) return
-    api.getAssignment(classId, assignmentId)
-      .then((a) => {
-        setTitle(a.title)
-        setDescription(a.description ?? '')
-        setMarkingCriteria(a.marking_criteria ?? '')
-        setStrictness(a.strictness ?? 'standard')
-      })
-      .catch(() => setError('Failed to load assignment.'))
-      .finally(() => setLoading(false))
-  }, [classId, assignmentId, editing])
 
   async function handleSubmit(e) {
     e.preventDefault()
     if (!title.trim()) return setError('Title is required.')
     setSaving(true)
     setError('')
-    const body = {
-      title: title.trim(),
-      description: description.trim(),
-      marking_criteria: markingCriteria.trim(),
-      strictness,
-    }
     try {
-      let assignment
-      if (editing) {
-        assignment = await api.updateAssignment(classId, assignmentId, body)
-      } else {
-        assignment = await api.createAssignment(classId, body)
+      const assignment = await api.createAssignment(classId, {
+        title: title.trim(),
+        description: description.trim(),
+        marking_criteria: '',
+        strictness,
+      })
+      if (rubric) {
+        await api.saveRubric(classId, assignment.id, { rubric })
       }
       navigate(`/classes/${classId}/assignments/${assignment.id}`)
     } catch (err) {
@@ -54,30 +38,20 @@ export default function AssignmentFormPage() {
     }
   }
 
-  if (loading) return <Layout><p className="text-gray-500">Loading…</p></Layout>
-
   return (
     <Layout>
-      <div className="max-w-2xl mx-auto">
+      <div className="max-w-3xl mx-auto">
         {/* Breadcrumb */}
         <p className="text-sm text-gray-500 mb-1">
           <Link to="/" className="hover:underline">My Classes</Link>
           {' / '}
           <Link to={`/classes/${classId}`} className="hover:underline">Class</Link>
-          {editing && (
-            <>
-              {' / '}
-              <Link to={`/classes/${classId}/assignments/${assignmentId}`} className="hover:underline">Assignment</Link>
-            </>
-          )}
           {' /'}
         </p>
 
-        <h1 className="text-2xl font-bold text-gray-900 mb-6">
-          {editing ? 'Edit Assignment' : 'New Assignment'}
-        </h1>
+        <h1 className="text-2xl font-bold text-gray-900 mb-6">New Assignment</h1>
 
-        <form onSubmit={handleSubmit} className="space-y-5">
+        <form onSubmit={handleSubmit} className="space-y-6">
           {error && <p className="text-sm text-red-600">{error}</p>}
 
           <div>
@@ -100,17 +74,6 @@ export default function AssignmentFormPage() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Marking Criteria</label>
-            <textarea
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              rows={6}
-              value={markingCriteria}
-              onChange={(e) => setMarkingCriteria(e.target.value)}
-              placeholder="Describe how submissions should be graded…"
-            />
-          </div>
-
-          <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Strictness</label>
             <select
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -123,13 +86,20 @@ export default function AssignmentFormPage() {
             </select>
           </div>
 
+          {/* Rubric section */}
+          <div className="border-t border-gray-200 pt-6 space-y-4">
+            <h2 className="text-base font-semibold text-gray-800">Rubric</h2>
+            <RubricIngestUploader onRubricExtracted={setRubric} />
+            <RubricEditor rubric={rubric} onChange={setRubric} />
+          </div>
+
           <div className="flex gap-3 pt-2">
             <button
               type="submit"
               disabled={saving}
               className="px-5 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
             >
-              {saving ? 'Saving…' : editing ? 'Save Changes' : 'Create Assignment'}
+              {saving ? 'Saving…' : 'Create Assignment'}
             </button>
             <button
               type="button"

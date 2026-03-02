@@ -30,3 +30,6 @@ class Assignment(Base):
     submissions: Mapped[list["Submission"]] = relationship(  # noqa: F821
         "Submission", back_populates="assignment", cascade="all, delete-orphan"
     )
+    rubric: Mapped["Rubric"] = relationship(  # noqa: F821
+        "Rubric", back_populates="assignment", uselist=False, cascade="all, delete-orphan"
+    )
