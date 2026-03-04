@@ -95,6 +95,14 @@ function RubricGroup({ group, onUpdate, onDelete, readOnly, onAddRow, onAddColum
   const { headerLevels, criteria } = group
   const [hoveredId, setHoveredId] = useState(null)
   const [hoveredLevelTitle, setHoveredLevelTitle] = useState(null)
+  const footerRef = useRef(null)
+
+  function keepFooterVisible(action) {
+    action()
+    requestAnimationFrame(() => {
+      footerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+    })
+  }
 
   function updateDescription(criterion, levelId, val) {
     onUpdate({
@@ -235,10 +243,10 @@ function RubricGroup({ group, onUpdate, onDelete, readOnly, onAddRow, onAddColum
       </div>
 
       {/* Bottom section: row + button + ++ corner */}
-      <div className="flex" style={{ borderTop: DASHED }}>
+      <div ref={footerRef} className="flex" style={{ borderTop: DASHED }}>
         <button
           type="button"
-          onClick={onAddRow}
+          onClick={() => keepFooterVisible(onAddRow)}
           title="Add row"
           className="flex-1 py-1.5 text-sm text-gray-400 hover:text-blue-500 hover:bg-blue-50 transition-colors"
         >
@@ -246,7 +254,7 @@ function RubricGroup({ group, onUpdate, onDelete, readOnly, onAddRow, onAddColum
         </button>
         <button
           type="button"
-          onClick={onAddBoth}
+          onClick={() => keepFooterVisible(onAddBoth)}
           title="Add row and column"
           style={{ borderLeft: DASHED }}
           className="w-10 py-1.5 text-xs font-semibold text-gray-400 hover:text-blue-500 hover:bg-blue-50 transition-colors"
