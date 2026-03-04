@@ -30,7 +30,7 @@ export default function AssignmentPage() {
       setMyMemberRole(role)
       if (role === 'teacher') {
         api.getRippleStats(classId, assignmentId).then(setRippleStats).catch(() => {})
-        api.getGradeStatus(classId, assignmentId).then(setGradeJob).catch(() => {})
+        api.getGradeStatus(classId, assignmentId).then((job) => setGradeJob(job ?? null)).catch(() => {})
       }
     })
 
@@ -76,8 +76,8 @@ export default function AssignmentPage() {
     const interval = setInterval(() => {
       api.getGradeStatus(classId, assignmentId)
         .then((job) => {
-          setGradeJob(job)
-          if (job.status === 'complete') {
+          setGradeJob(job ?? null)
+          if (job && job.status === 'complete') {
             api.getGradeResults(classId, assignmentId).then(setGradeResults).catch(() => {})
           }
         })

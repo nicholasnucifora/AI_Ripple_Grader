@@ -101,7 +101,7 @@ def delete_grading(
     return Response(status_code=204)
 
 
-@router.get("/status", response_model=GradingJobOut)
+@router.get("/status", response_model=GradingJobOut | None)
 def get_grade_status(
     class_id: int,
     assignment_id: int,
@@ -110,7 +110,7 @@ def get_grade_status(
 ):
     _require_class_teacher(class_id, current_user, db)
     _get_assignment_or_404(class_id, assignment_id, db)
-    return _get_job_or_404(assignment_id, db)
+    return db.query(GradingJob).filter(GradingJob.assignment_id == assignment_id).first()
 
 
 @router.get("/results", response_model=list[GradeResultOut])
