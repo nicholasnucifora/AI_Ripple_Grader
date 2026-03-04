@@ -5,7 +5,9 @@ from app.core.config import settings
 # SQLite requires check_same_thread=False for FastAPI's async context.
 # Other databases (PostgreSQL) do not need this — it's filtered out automatically.
 _connect_args = (
-    {"check_same_thread": False} if settings.database_url.startswith("sqlite") else {}
+    {"check_same_thread": False, "timeout": 30}
+    if settings.database_url.startswith("sqlite")
+    else {}
 )
 
 engine = create_engine(settings.database_url, connect_args=_connect_args)

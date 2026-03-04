@@ -22,42 +22,52 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-def reset_interrupted(db) -> None:
+def reset_interrupted() -> None:
     """Any job left in 'running' state from a previous crash → reset to 'queued'."""
-    count = (
-        db.query(GradingJob)
-        .filter(GradingJob.status == "running")
-        .update({"status": "queued"})
-    )
-    if count:
-        db.commit()
-        logger.info("Reset %d interrupted job(s) to queued", count)
+    db = SessionLocal()
+    try:
+        count = (
+            db.query(GradingJob)
+            .filter(GradingJob.status == "running")
+            .update({"status": "queued"})
+        )
+        if count:
+            db.commit()
+            logger.info("Reset %d interrupted job(s) to queued", count)
+    finally:
+        db.close()
 
 
-def claim_next_job(db) -> GradingJob | None:
-    """Return the next queued job, using skip-locked if PostgreSQL."""
-    q = db.query(GradingJob).filter(GradingJob.status == "queued").order_by(GradingJob.id)
-    if engine.dialect.name == "postgresql":
-        q = q.with_for_update(skip_locked=True)
-    return q.first()
+def claim_next_job() -> int | None:
+    """Return the assignment_id of the next queued job, or None. Closes session immediately."""
+    db = SessionLocal()
+    try:
+        q = db.query(GradingJob).filter(GradingJob.status == "queued").order_by(GradingJob.id)
+        if engine.dialect.name == "postgresql":
+            q = q.with_for_update(skip_locked=True)
+        job = q.first()
+        return job.assignment_id if job else None
+    finally:
+        db.close()
 
 
 def main():
-    db = SessionLocal()
+    reset_interrupted()
+    logger.info("Worker started — polling every %ds", POLL_INTERVAL)
     try:
-        reset_interrupted(db)
-        logger.info("Worker started — polling every %ds", POLL_INTERVAL)
         while True:
-            job = claim_next_job(db)
-            if job:
-                logger.info("Picked up job id=%d for assignment_id=%d", job.id, job.assignment_id)
-                grade_assignment(job.assignment_id, db)
+            assignment_id = claim_next_job()
+            if assignment_id is not None:
+                logger.info("Picked up job for assignment_id=%d", assignment_id)
+                db = SessionLocal()
+                try:
+                    grade_assignment(assignment_id, db)
+                finally:
+                    db.close()
             else:
                 time.sleep(POLL_INTERVAL)
     except KeyboardInterrupt:
         logger.info("Worker stopped by user")
-    finally:
-        db.close()
 
 
 if __name__ == "__main__":
