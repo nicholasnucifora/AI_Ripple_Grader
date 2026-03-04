@@ -1,5 +1,4 @@
 import csv
-import io
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile
 from sqlalchemy.orm import Session
@@ -42,7 +41,16 @@ async def import_ripple_csv(
     assignment = _get_assignment_or_404(class_id, assignment_id, db)
 
     content = await file.read()
-    text = content.decode("utf-8-sig")
+    # Try common encodings; RiPPLE exports may vary
+    for enc in ("utf-8-sig", "utf-8", "latin-1"):
+        try:
+            text = content.decode(enc)
+            break
+        except UnicodeDecodeError:
+            continue
+    else:
+        raise HTTPException(status_code=400, detail="Could not decode CSV file — unsupported encoding")
+
     lines = text.splitlines()
 
     # Skip the first two header rows (Start Date / End Date metadata)

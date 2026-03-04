@@ -2,8 +2,9 @@ import json
 import logging
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from app.core.config import settings
 from app.core.database import SessionLocal, engine
@@ -135,6 +136,24 @@ app.include_router(submissions_router)
 app.include_router(rubric_ingest_router)
 app.include_router(rubric_crud_router)
 app.include_router(ripple_router)
+
+
+# ---------------------------------------------------------------------------
+# Global exception handler
+#
+# Starlette's ServerErrorMiddleware (outermost) catches unhandled exceptions
+# and returns a 500 *before* CORSMiddleware (inner) can add headers, which
+# causes browsers to report a CORS error instead of the real 500.  Registering
+# a handler here means ExceptionMiddleware (which sits *inside* CORSMiddleware)
+# converts unhandled exceptions into a JSONResponse that does travel through
+# the CORS middleware, so the CORS header is present.
+# ---------------------------------------------------------------------------
+
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+    logger.error("Unhandled exception on %s %s: %s", request.method, request.url.path, exc, exc_info=True)
+    return JSONResponse(status_code=500, content={"detail": "Internal server error"})
 
 
 # ---------------------------------------------------------------------------
