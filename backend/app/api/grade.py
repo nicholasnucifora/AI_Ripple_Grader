@@ -7,7 +7,7 @@ from app.api.classes import _require_class_teacher
 from app.core.database import get_db
 from app.models.assignment import Assignment
 from app.models.grade import GradeResult, GradingJob
-from app.models.ripple import RippleResource
+from app.models.ripple import RippleModeration, RippleResource
 from app.models.rubric import Rubric
 from app.models.user import User
 from app.schemas.grade import GradingJobOut, GradeResultOut
