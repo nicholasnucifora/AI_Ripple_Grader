@@ -91,9 +91,10 @@ const DASHED = '1px dashed #d1d5db'
 // RubricGroup — one CSS grid per set of criteria sharing the same level columns
 // ---------------------------------------------------------------------------
 
-function RubricGroup({ group, onUpdate, onDelete, readOnly, onAddRow, onAddColumn, onAddBoth }) {
+function RubricGroup({ group, onUpdate, onDelete, readOnly, onAddRow, onAddColumn, onAddBoth, onDeleteColumn }) {
   const { headerLevels, criteria } = group
   const [hoveredId, setHoveredId] = useState(null)
+  const [hoveredLevelTitle, setHoveredLevelTitle] = useState(null)
 
   function updateDescription(criterion, levelId, val) {
     onUpdate({
@@ -114,9 +115,24 @@ function RubricGroup({ group, onUpdate, onDelete, readOnly, onAddRow, onAddColum
         Criterion
       </div>
       {headerLevels.map((level) => (
-        <div key={level.id} className="px-4 py-2 bg-gray-50 border-b border-l border-gray-200">
+        <div
+          key={level.id}
+          className="relative px-4 py-2 bg-gray-50 border-b border-l border-gray-200"
+          onMouseEnter={() => setHoveredLevelTitle(level.title)}
+          onMouseLeave={() => setHoveredLevelTitle(null)}
+        >
           <div className="text-sm font-semibold text-gray-800">{level.title}</div>
           <div className="text-xs text-gray-400">{level.points} pts</div>
+          {!readOnly && (
+            <button
+              type="button"
+              onClick={() => onDeleteColumn(level.title)}
+              className={`absolute top-2 right-2 text-gray-400 hover:text-red-500 text-xs transition-opacity ${hoveredLevelTitle === level.title ? 'opacity-100' : 'opacity-0'}`}
+              title="Remove column"
+            >
+              ✕
+            </button>
+          )}
         </div>
       ))}
 
@@ -305,6 +321,17 @@ export default function RubricEditor({ rubric, onChange, readOnly = false }) {
     })
   }
 
+  function deleteColumnFromGroup(group, levelTitle) {
+    const criteriaIds = new Set(group.criteria.map((c) => c.id))
+    onChange({
+      ...rubric,
+      criteria: rubric.criteria.map((c) => {
+        if (!criteriaIds.has(c.id)) return c
+        return { ...c, levels: c.levels.filter((l) => l.title !== levelTitle) }
+      }),
+    })
+  }
+
   // Atomic: adds a new row AND a new column in one onChange call so neither overwrites the other
   function addBothToGroup(group) {
     const criteriaIds = new Set(group.criteria.map((c) => c.id))
@@ -372,6 +399,7 @@ export default function RubricEditor({ rubric, onChange, readOnly = false }) {
             onAddRow={() => addCriterionToGroup(group)}
             onAddColumn={() => addColumnToGroup(group)}
             onAddBoth={() => addBothToGroup(group)}
+            onDeleteColumn={(title) => deleteColumnFromGroup(group, title)}
           />
         ))}
       </div>
