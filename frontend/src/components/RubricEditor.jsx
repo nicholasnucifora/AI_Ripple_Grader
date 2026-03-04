@@ -85,6 +85,13 @@ function groupCriteria(criteria) {
 }
 
 // ---------------------------------------------------------------------------
+// Border style helpers — dashed borders need per-side inline styles because
+// Tailwind's border-dashed applies to all sides at once.
+// ---------------------------------------------------------------------------
+
+const DASHED = '1px dashed #d1d5db' // gray-300
+
+// ---------------------------------------------------------------------------
 // RubricGroup — one CSS grid per set of criteria sharing the same level columns
 // ---------------------------------------------------------------------------
 
@@ -101,113 +108,139 @@ function RubricGroup({ group, onUpdate, onDelete, readOnly, onAddRow, onAddColum
     })
   }
 
-  const colTemplate = `minmax(140px, 200px) repeat(${headerLevels.length}, 1fr)${!readOnly ? ' 2rem' : ''}`
+  // +1 for the criterion name column, then N level columns, then (if editable) 1 dashed + column
+  const dataCols = headerLevels.length + 1
+  const colTemplate = !readOnly
+    ? `minmax(140px, 200px) repeat(${headerLevels.length}, 1fr) 2.5rem`
+    : `minmax(140px, 200px) repeat(${headerLevels.length}, 1fr)`
 
   return (
-    <div className="space-y-1">
-      <div
-        className="grid border border-gray-200 rounded-lg overflow-hidden"
-        style={{ gridTemplateColumns: colTemplate }}
-      >
-        {/* Header row */}
-        <div className="px-4 py-2 bg-gray-50 border-b border-gray-200 text-xs font-semibold text-gray-500 uppercase tracking-wide">
-          Criterion
+    <div
+      className="grid border border-gray-200 rounded-lg overflow-hidden"
+      style={{ gridTemplateColumns: colTemplate }}
+    >
+      {/* ── Header row ── */}
+      <div className="px-4 py-2 bg-gray-50 border-b border-gray-200 text-xs font-semibold text-gray-500 uppercase tracking-wide">
+        Criterion
+      </div>
+      {headerLevels.map((level) => (
+        <div key={level.id} className="px-4 py-2 bg-gray-50 border-b border-l border-gray-200">
+          <div className="text-sm font-semibold text-gray-800">{level.title}</div>
+          <div className="text-xs text-gray-400">{level.points} pts</div>
         </div>
-        {headerLevels.map((level) => (
-          <div key={level.id} className="px-4 py-2 bg-gray-50 border-b border-l border-gray-200">
-            <div className="text-sm font-semibold text-gray-800">{level.title}</div>
-            <div className="text-xs text-gray-400">{level.points} pts</div>
-          </div>
-        ))}
-        {!readOnly && (
-          <div className="bg-gray-50 border-b border-l border-gray-200 flex items-center justify-center">
-            <button
-              type="button"
-              onClick={onAddColumn}
-              title="Add column"
-              className="w-full h-full text-gray-400 hover:text-blue-500 hover:bg-blue-50 transition-colors text-base font-medium"
+      ))}
+      {/* Dashed + column header */}
+      {!readOnly && (
+        <div
+          className="bg-gray-50 border-b border-gray-200 flex items-center justify-center"
+          style={{ borderLeft: DASHED }}
+        >
+          <button
+            type="button"
+            onClick={onAddColumn}
+            title="Add column"
+            className="w-full h-full text-gray-400 hover:text-blue-500 hover:bg-blue-50 transition-colors text-sm font-medium"
+          >
+            +
+          </button>
+        </div>
+      )}
+
+      {/* ── Criterion rows ── */}
+      {criteria.map((criterion, rowIdx) => {
+        const isHovered = hoveredId === criterion.id
+        const isLast = rowIdx === criteria.length - 1
+        const sortedLevels = [...criterion.levels].sort((a, b) => b.points - a.points)
+        const borderB = isLast ? '' : 'border-b border-gray-200'
+        const rowBg = isHovered ? 'bg-blue-50' : ''
+
+        return (
+          <Fragment key={criterion.id}>
+            {/* Criterion name + weight cell */}
+            <div
+              className={`relative px-4 py-3 flex flex-col gap-1 ${borderB} ${rowBg} transition-colors`}
+              onMouseEnter={() => setHoveredId(criterion.id)}
+              onMouseLeave={() => setHoveredId(null)}
             >
-              +
-            </button>
-          </div>
-        )}
+              <InlineText
+                value={criterion.name}
+                onChange={(v) => onUpdate({ ...criterion, name: v })}
+                readOnly={readOnly}
+                className="font-semibold text-sm text-gray-800 w-full"
+                placeholder="Criterion name"
+              />
+              <div className="flex items-center gap-1 text-xs text-gray-400">
+                <InlineNumber
+                  value={criterion.weight_percentage}
+                  onChange={(v) => onUpdate({ ...criterion, weight_percentage: v })}
+                  readOnly={readOnly}
+                  className="text-xs"
+                />
+                <span>%</span>
+              </div>
+              {!readOnly && (
+                <button
+                  type="button"
+                  onClick={() => onDelete(criterion.id)}
+                  className={`absolute top-2 right-2 text-gray-400 hover:text-red-500 text-xs transition-opacity ${isHovered ? 'opacity-100' : 'opacity-0'}`}
+                  title="Remove criterion"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
 
-        {/* Criterion rows */}
-        {criteria.map((criterion, rowIdx) => {
-          const isHovered = hoveredId === criterion.id
-          const isLast = rowIdx === criteria.length - 1
-          const sortedLevels = [...criterion.levels].sort((a, b) => b.points - a.points)
-          const borderB = isLast ? '' : 'border-b border-gray-200'
-          const rowBg = isHovered ? 'bg-blue-50' : ''
-
-          return (
-            <Fragment key={criterion.id}>
-              {/* Criterion name + weight cell */}
+            {/* Level description cells */}
+            {sortedLevels.map((level) => (
               <div
-                className={`relative px-4 py-3 flex flex-col gap-1 ${borderB} ${rowBg} transition-colors`}
+                key={level.id}
+                className={`px-4 py-3 border-l border-gray-200 ${borderB} ${rowBg} transition-colors`}
                 onMouseEnter={() => setHoveredId(criterion.id)}
                 onMouseLeave={() => setHoveredId(null)}
               >
-                <InlineText
-                  value={criterion.name}
-                  onChange={(v) => onUpdate({ ...criterion, name: v })}
+                <InlineTextarea
+                  value={level.description}
+                  onChange={(v) => updateDescription(criterion, level.id, v)}
                   readOnly={readOnly}
-                  className="font-semibold text-sm text-gray-800 w-full"
-                  placeholder="Criterion name"
                 />
-                <div className="flex items-center gap-1 text-xs text-gray-400">
-                  <InlineNumber
-                    value={criterion.weight_percentage}
-                    onChange={(v) => onUpdate({ ...criterion, weight_percentage: v })}
-                    readOnly={readOnly}
-                    className="text-xs"
-                  />
-                  <span>%</span>
-                </div>
-                {!readOnly && (
-                  <button
-                    type="button"
-                    onClick={() => onDelete(criterion.id)}
-                    className={`absolute top-2 right-2 text-gray-400 hover:text-red-500 text-xs transition-opacity ${isHovered ? 'opacity-100' : 'opacity-0'}`}
-                    title="Remove criterion"
-                  >
-                    ✕
-                  </button>
-                )}
               </div>
+            ))}
 
-              {/* Level description cells */}
-              {sortedLevels.map((level) => (
-                <div
-                  key={level.id}
-                  className={`px-4 py-3 border-l border-gray-200 ${borderB} ${rowBg} transition-colors`}
-                  onMouseEnter={() => setHoveredId(criterion.id)}
-                  onMouseLeave={() => setHoveredId(null)}
-                >
-                  <InlineTextarea
-                    value={level.description}
-                    onChange={(v) => updateDescription(criterion, level.id, v)}
-                    readOnly={readOnly}
-                  />
-                </div>
-              ))}
+            {/* Dashed spacer cell in + column */}
+            {!readOnly && (
+              <div
+                className={borderB}
+                style={{ borderLeft: DASHED }}
+              />
+            )}
+          </Fragment>
+        )
+      })}
 
-              {/* Spacer cell for the + column */}
-              {!readOnly && <div className={`border-l border-gray-200 ${borderB}`} />}
-            </Fragment>
-          )
-        })}
-      </div>
-
-      {/* Add row button — below this group's table */}
+      {/* ── Footer row: + add-row button + ++ corner ── */}
       {!readOnly && (
-        <button
-          type="button"
-          onClick={onAddRow}
-          className="w-full py-1.5 border-2 border-dashed border-gray-300 rounded-lg text-sm text-gray-400 hover:border-blue-400 hover:text-blue-500 transition-colors"
-        >
-          +
-        </button>
+        <>
+          {/* + spans all data columns (criterion col + all level cols) */}
+          <button
+            type="button"
+            onClick={onAddRow}
+            title="Add row"
+            style={{ gridColumn: `1 / span ${dataCols}`, borderTop: DASHED }}
+            className="py-1.5 text-sm text-gray-400 hover:text-blue-500 hover:bg-blue-50 transition-colors"
+          >
+            +
+          </button>
+          {/* ++ corner: add row AND column */}
+          <button
+            type="button"
+            onClick={() => { onAddRow(); onAddColumn() }}
+            title="Add row and column"
+            style={{ borderTop: DASHED, borderLeft: DASHED }}
+            className="py-1.5 text-xs font-semibold text-gray-400 hover:text-blue-500 hover:bg-blue-50 transition-colors"
+          >
+            ++
+          </button>
+        </>
       )}
     </div>
   )
@@ -223,7 +256,6 @@ export default function RubricEditor({ rubric, onChange, readOnly = false }) {
     [rubric]
   )
 
-  // Group criteria by their level signature — different level sets → separate grids
   const groups = useMemo(() => groupCriteria(rubric?.criteria ?? []), [rubric])
 
   if (!rubric) {
