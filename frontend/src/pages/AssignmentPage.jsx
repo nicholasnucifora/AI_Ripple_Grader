@@ -18,6 +18,9 @@ export default function AssignmentPage() {
   const [rippleStats, setRippleStats] = useState(null)
   const [rippleImporting, setRippleImporting] = useState(false)
   const [rippleMessage, setRippleMessage] = useState(null) // { ok: bool, text: str }
+  const [gradeJob, setGradeJob] = useState(null)
+  const [gradeResults, setGradeResults] = useState(null)
+  const [expandedResult, setExpandedResult] = useState(null)
 
   useEffect(() => {
     // Fetch class to determine role
@@ -27,6 +30,7 @@ export default function AssignmentPage() {
       setMyMemberRole(role)
       if (role === 'teacher') {
         api.getRippleStats(classId, assignmentId).then(setRippleStats).catch(() => {})
+        api.getGradeStatus(classId, assignmentId).then(setGradeJob).catch(() => {})
       }
     })
 
@@ -56,6 +60,59 @@ export default function AssignmentPage() {
       setRippleMessage({ ok: false, text: err.message })
     } finally {
       setRippleImporting(false)
+    }
+  }
+
+  // Poll for grading status when job is active
+  useEffect(() => {
+    if (!gradeJob) return
+    const active = gradeJob.status === 'queued' || gradeJob.status === 'running'
+    if (!active) {
+      if (gradeJob.status === 'complete') {
+        api.getGradeResults(classId, assignmentId).then(setGradeResults).catch(() => {})
+      }
+      return
+    }
+    const interval = setInterval(() => {
+      api.getGradeStatus(classId, assignmentId)
+        .then((job) => {
+          setGradeJob(job)
+          if (job.status === 'complete') {
+            api.getGradeResults(classId, assignmentId).then(setGradeResults).catch(() => {})
+          }
+        })
+        .catch(() => {})
+    }, 3000)
+    return () => clearInterval(interval)
+  }, [gradeJob?.status, classId, assignmentId])
+
+  async function handleStartGrading() {
+    try {
+      const job = await api.startGrading(classId, assignmentId)
+      setGradeJob(job)
+      setGradeResults(null)
+    } catch (err) {
+      alert(err.message)
+    }
+  }
+
+  async function handleCancelGrading() {
+    try {
+      const job = await api.cancelGrading(classId, assignmentId)
+      setGradeJob(job)
+    } catch (err) {
+      alert(err.message)
+    }
+  }
+
+  async function handleDeleteGrading() {
+    if (!confirm('Delete all AI grading results for this assignment?')) return
+    try {
+      await api.deleteGrading(classId, assignmentId)
+      setGradeJob(null)
+      setGradeResults(null)
+    } catch (err) {
+      alert(err.message)
     }
   }
 
@@ -155,6 +212,21 @@ export default function AssignmentPage() {
           </section>
         )}
 
+        {/* AI Grading — teacher only */}
+        {isTeacher && (
+          <AiGradingSection
+            rippleStats={rippleStats}
+            assignment={assignment}
+            gradeJob={gradeJob}
+            gradeResults={gradeResults}
+            expandedResult={expandedResult}
+            setExpandedResult={setExpandedResult}
+            onStart={handleStartGrading}
+            onCancel={handleCancelGrading}
+            onDelete={handleDeleteGrading}
+          />
+        )}
+
         {/* Submissions section */}
         <section>
           <div className="flex items-center justify-between mb-4">
@@ -232,6 +304,203 @@ function StudentSubmissionView({ submission }) {
         Submitted {new Date(submission.submitted_at).toLocaleString()}
       </p>
       <p className="text-sm text-gray-700 whitespace-pre-wrap">{submission.content}</p>
+    </div>
+  )
+}
+
+function AiGradingSection({
+  rippleStats,
+  assignment,
+  gradeJob,
+  gradeResults,
+  expandedResult,
+  setExpandedResult,
+  onStart,
+  onCancel,
+  onDelete,
+}) {
+  const hasResources = rippleStats && rippleStats.resources > 0
+  const hasRubric = !!assignment.rubric_id || assignment.has_rubric
+  // Derive readiness from rubric: if assignment doesn't carry a flag, we rely on backend
+  // guarding. We show the button; the backend will 400 if rubric is missing.
+  const canStart = hasResources
+
+  const status = gradeJob?.status
+
+  function missingTooltip() {
+    if (!hasResources) return 'Upload a RiPPLE resource CSV first'
+    return ''
+  }
+
+  const progressPct =
+    gradeJob && gradeJob.total > 0
+      ? Math.round((gradeJob.graded / gradeJob.total) * 100)
+      : 0
+
+  return (
+    <section className="bg-white border border-gray-200 rounded-xl p-5 mb-6">
+      <h2 className="font-semibold text-gray-800 mb-3">AI Grading</h2>
+
+      {/* No job yet */}
+      {!gradeJob && (
+        <div className="flex items-center gap-3">
+          <button
+            onClick={onStart}
+            disabled={!canStart}
+            title={missingTooltip()}
+            className={`px-3 py-1.5 text-sm rounded-lg ${
+              canStart
+                ? 'bg-indigo-600 text-white hover:bg-indigo-700'
+                : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+            }`}
+          >
+            Start Grading
+          </button>
+          {!canStart && (
+            <span className="text-sm text-gray-400">{missingTooltip()}</span>
+          )}
+        </div>
+      )}
+
+      {/* Queued */}
+      {status === 'queued' && (
+        <p className="text-sm text-gray-500">Queued — worker will pick this up shortly…</p>
+      )}
+
+      {/* Running */}
+      {status === 'running' && (
+        <div>
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-sm text-gray-700">
+              Grading resources… {gradeJob.graded} / {gradeJob.total}
+            </span>
+            <button
+              onClick={onCancel}
+              className="px-3 py-1 text-sm border border-gray-300 rounded-lg hover:bg-gray-50"
+            >
+              Cancel
+            </button>
+          </div>
+          <div className="w-full bg-gray-200 rounded-full h-2">
+            <div
+              className="bg-indigo-500 h-2 rounded-full transition-all"
+              style={{ width: `${progressPct}%` }}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Complete */}
+      {status === 'complete' && (
+        <div>
+          <div className="flex items-center gap-3 mb-4">
+            <span className="text-sm text-green-700 font-medium">
+              {gradeJob.graded} graded{gradeJob.errors > 0 ? ` · ${gradeJob.errors} errors` : ''}
+            </span>
+            <button
+              onClick={onDelete}
+              className="px-3 py-1.5 text-sm border border-red-300 text-red-600 rounded-lg hover:bg-red-50"
+            >
+              Delete AI Grading
+            </button>
+          </div>
+          {gradeResults && gradeResults.length > 0 && (
+            <GradeResultsTable
+              results={gradeResults}
+              expandedResult={expandedResult}
+              setExpandedResult={setExpandedResult}
+            />
+          )}
+        </div>
+      )}
+
+      {/* Cancelled / Error */}
+      {(status === 'cancelled' || status === 'error') && (
+        <div className="flex items-center gap-3">
+          <span className="text-sm text-gray-500 capitalize">{status}</span>
+          <button
+            onClick={onDelete}
+            className="px-3 py-1.5 text-sm border border-red-300 text-red-600 rounded-lg hover:bg-red-50"
+          >
+            Delete AI Grading
+          </button>
+        </div>
+      )}
+    </section>
+  )
+}
+
+function GradeResultsTable({ results, expandedResult, setExpandedResult }) {
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full text-sm border border-gray-200 rounded-xl overflow-hidden">
+        <thead className="bg-gray-50 text-gray-600 text-xs uppercase">
+          <tr>
+            <th className="px-4 py-3 text-left">Resource</th>
+            <th className="px-4 py-3 text-left">Author</th>
+            <th className="px-4 py-3 text-left">Score</th>
+            <th className="px-4 py-3 text-left">Feedback</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-gray-100">
+          {results.map((r) => {
+            const score = r.criterion_grades
+              ? r.criterion_grades.reduce((s, g) => s + (g.points_awarded || 0), 0)
+              : 0
+            const maxScore = r.criterion_grades
+              ? r.criterion_grades.reduce((s, g) => {
+                  // best-effort max; we don't have rubric here so just show total
+                  return s + (g.points_awarded || 0)
+                }, 0)
+              : 0
+            const isExpanded = expandedResult === r.id
+            return [
+              <tr
+                key={r.id}
+                className="bg-white hover:bg-gray-50 cursor-pointer"
+                onClick={() => setExpandedResult(isExpanded ? null : r.id)}
+              >
+                <td className="px-4 py-3 font-mono text-gray-700">{r.resource_id}</td>
+                <td className="px-4 py-3 text-gray-600">{r.primary_author_name || '—'}</td>
+                <td className="px-4 py-3 text-gray-800 font-medium">
+                  {r.status === 'error' ? (
+                    <span className="text-red-500">Error</span>
+                  ) : (
+                    score.toFixed(1)
+                  )}
+                </td>
+                <td className="px-4 py-3 text-gray-500 truncate max-w-xs">
+                  {r.status === 'error' ? r.error_message : r.overall_feedback}
+                </td>
+              </tr>,
+              isExpanded && r.criterion_grades && r.criterion_grades.length > 0 && (
+                <tr key={`${r.id}-detail`} className="bg-indigo-50">
+                  <td colSpan={4} className="px-4 py-3">
+                    <div className="text-xs font-semibold text-gray-600 mb-2">Criterion Breakdown</div>
+                    <div className="space-y-2">
+                      {r.criterion_grades.map((g, i) => (
+                        <div key={i} className="flex flex-col gap-0.5">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium text-gray-700">{g.criterion_name}</span>
+                            <span className="text-indigo-700 font-semibold">{g.level_title} ({g.points_awarded} pts)</span>
+                          </div>
+                          <p className="text-gray-500 pl-1">{g.feedback}</p>
+                        </div>
+                      ))}
+                    </div>
+                    {r.overall_feedback && (
+                      <div className="mt-3 pt-3 border-t border-indigo-200">
+                        <div className="text-xs font-semibold text-gray-600 mb-1">Overall Feedback</div>
+                        <p className="text-gray-700 text-sm">{r.overall_feedback}</p>
+                      </div>
+                    )}
+                  </td>
+                </tr>
+              ),
+            ]
+          })}
+        </tbody>
+      </table>
     </div>
   )
 }

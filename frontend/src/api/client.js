@@ -81,4 +81,16 @@ export const api = {
     }),
   getRippleStats: (classId, assignmentId) =>
     request(`/classes/${classId}/assignments/${assignmentId}/ripple/stats`),
+
+  // AI Grading
+  startGrading: (classId, assignmentId) =>
+    request(`/classes/${classId}/assignments/${assignmentId}/grade/start`, { method: 'POST' }),
+  cancelGrading: (classId, assignmentId) =>
+    request(`/classes/${classId}/assignments/${assignmentId}/grade/cancel`, { method: 'POST' }),
+  deleteGrading: (classId, assignmentId) =>
+    request(`/classes/${classId}/assignments/${assignmentId}/grade`, { method: 'DELETE' }),
+  getGradeStatus: (classId, assignmentId) =>
+    request(`/classes/${classId}/assignments/${assignmentId}/grade/status`),
+  getGradeResults: (classId, assignmentId) =>
+    request(`/classes/${classId}/assignments/${assignmentId}/grade/results`),
 }

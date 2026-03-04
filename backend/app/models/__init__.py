@@ -7,3 +7,4 @@ from app.models.assignment import Assignment  # noqa: F401
 from app.models.submission import Submission  # noqa: F401
 from app.models.rubric import Rubric  # noqa: F401
 from app.models.ripple import RippleResource, RippleModeration  # noqa: F401
+from app.models.grade import GradingJob, GradeResult  # noqa: F401

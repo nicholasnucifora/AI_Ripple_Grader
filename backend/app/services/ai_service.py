@@ -9,13 +9,121 @@ class AIService:
         self._client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
         self._model = settings.anthropic_model
 
-    def grade_submission(self, submission_text: str, rubric: str) -> dict:
+    def grade_submission(
+        self,
+        sections: list[str],
+        rubric: dict,
+        moderations: list[dict],
+        strictness: str,
+    ) -> dict:
         """
-        Grade a student submission against a rubric.
-        Returns a dict with at least: { "score": ..., "feedback": ... }
+        Grade student content sections against a rubric using Claude Tool Use.
+        Returns: {"criterion_grades": [...], "overall_feedback": "..."}
         """
-        # TODO: implement grading prompt + response parsing
-        raise NotImplementedError
+        strictness_instructions = {
+            "lenient": "err on the side of generosity when evidence is partial",
+            "standard": "apply criteria as written",
+            "strict": "only award a level if all descriptors are fully demonstrated",
+        }
+        strictness_note = strictness_instructions.get(strictness, "apply criteria as written")
+
+        grade_tool = {
+            "name": "submit_grade",
+            "description": (
+                "Submit the complete grading result for this student submission. "
+                "Call this tool exactly once with grades for every criterion."
+            ),
+            "input_schema": {
+                "type": "object",
+                "properties": {
+                    "criterion_grades": {
+                        "type": "array",
+                        "description": "One entry per rubric criterion.",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "criterion_id": {
+                                    "type": "string",
+                                    "description": "The criterion id from the rubric.",
+                                },
+                                "criterion_name": {
+                                    "type": "string",
+                                    "description": "The criterion name.",
+                                },
+                                "level_id": {
+                                    "type": "string",
+                                    "description": "The id of the awarded performance level.",
+                                },
+                                "level_title": {
+                                    "type": "string",
+                                    "description": "The title of the awarded performance level.",
+                                },
+                                "points_awarded": {
+                                    "type": "number",
+                                    "description": "Points awarded for this criterion.",
+                                },
+                                "feedback": {
+                                    "type": "string",
+                                    "description": "Brief justification for this grade.",
+                                },
+                            },
+                            "required": [
+                                "criterion_id",
+                                "criterion_name",
+                                "level_id",
+                                "level_title",
+                                "points_awarded",
+                                "feedback",
+                            ],
+                        },
+                    },
+                    "overall_feedback": {
+                        "type": "string",
+                        "description": "Overall feedback for the student.",
+                    },
+                },
+                "required": ["criterion_grades", "overall_feedback"],
+            },
+        }
+
+        rubric_md = self.format_rubric_to_markdown(rubric)
+
+        content_block = "\n\n".join(
+            f"### Section {i + 1}\n{s}" for i, s in enumerate(sections)
+        )
+
+        user_message = (
+            f"Grade the following student submission against the rubric. "
+            f"Strictness instruction: {strictness_note}.\n\n"
+            f"{rubric_md}\n\n"
+            f"## Student Submission\n\n{content_block}"
+        )
+
+        if moderations:
+            mod_lines = "\n".join(
+                f"- [{m.get('role', 'reviewer')}]: {m.get('comment', '')}"
+                for m in moderations
+                if m.get("comment", "").strip()
+            )
+            if mod_lines:
+                user_message += (
+                    "\n\n## Peer reviews for context (do not grade the reviewer):\n"
+                    + mod_lines
+                )
+
+        response = self._client.messages.create(
+            model=self._model,
+            max_tokens=2048,
+            tools=[grade_tool],
+            tool_choice={"type": "tool", "name": "submit_grade"},
+            messages=[{"role": "user", "content": user_message}],
+        )
+
+        for block in response.content:
+            if block.type == "tool_use" and block.name == "submit_grade":
+                return block.input
+
+        raise ValueError("Claude did not return a grade tool call")
 
     def extract_rubric(self, markdown: str) -> dict:
         """
