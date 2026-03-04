@@ -36,7 +36,7 @@ export default function ClassPage() {
 
   return (
     <Layout>
-      <div className="max-w-4xl mx-auto">
+      <div className="max-w-6xl mx-auto">
         <div className="mb-6">
           <p className="text-sm text-gray-500 mb-1">
             <Link to="/" className="hover:underline">My Classes</Link> /

@@ -40,7 +40,7 @@ export default function AssignmentFormPage() {
 
   return (
     <Layout>
-      <div className="max-w-3xl mx-auto">
+      <div className="max-w-6xl mx-auto">
         {/* Breadcrumb */}
         <p className="text-sm text-gray-500 mb-1">
           <Link to="/" className="hover:underline">My Classes</Link>
@@ -54,46 +54,49 @@ export default function AssignmentFormPage() {
         <form onSubmit={handleSubmit} className="space-y-6">
           {error && <p className="text-sm text-red-600">{error}</p>}
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Title</label>
-            <input
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-            />
+          {/* Form fields — centered narrow column */}
+          <div className="max-w-xl mx-auto space-y-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Title</label>
+              <input
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+              <textarea
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                rows={3}
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Strictness</label>
+              <select
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                value={strictness}
+                onChange={(e) => setStrictness(e.target.value)}
+              >
+                <option value="lenient">Lenient</option>
+                <option value="standard">Standard</option>
+                <option value="strict">Strict</option>
+              </select>
+            </div>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
-            <textarea
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              rows={3}
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Strictness</label>
-            <select
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              value={strictness}
-              onChange={(e) => setStrictness(e.target.value)}
-            >
-              <option value="lenient">Lenient</option>
-              <option value="standard">Standard</option>
-              <option value="strict">Strict</option>
-            </select>
-          </div>
-
-          {/* Rubric section */}
+          {/* Rubric section — full width of outer container */}
           <div className="border-t border-gray-200 pt-6 space-y-4">
             <h2 className="text-base font-semibold text-gray-800">Rubric</h2>
             <RubricIngestUploader onRubricExtracted={setRubric} />
             <RubricEditor rubric={rubric} onChange={setRubric} />
           </div>
 
-          <div className="flex gap-3 pt-2">
+          <div className="max-w-xl mx-auto flex gap-3 pt-2">
             <button
               type="submit"
               disabled={saving}
