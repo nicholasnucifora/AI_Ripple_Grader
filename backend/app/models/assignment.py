@@ -17,6 +17,7 @@ class Assignment(Base):
     strictness: Mapped[str] = mapped_column(
         String(16), nullable=False, default="standard"
     )  # "lenient" | "standard" | "strict"
+    additional_notes: Mapped[str] = mapped_column(Text, nullable=False, default="")
     created_by: Mapped[str] = mapped_column(
         ForeignKey("users.user_id"), nullable=False
     )

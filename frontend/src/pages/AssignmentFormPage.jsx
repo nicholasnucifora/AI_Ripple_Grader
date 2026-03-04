@@ -11,8 +11,9 @@ export default function AssignmentFormPage() {
 
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
-  const [strictness, setStrictness] = useState('standard')
   const [rubric, setRubric] = useState(null)
+  const [strictness, setStrictness] = useState('standard')
+  const [additionalNotes, setAdditionalNotes] = useState('')
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
 
@@ -27,6 +28,7 @@ export default function AssignmentFormPage() {
         description: description.trim(),
         marking_criteria: '',
         strictness,
+        additional_notes: additionalNotes.trim(),
       })
       if (rubric) {
         await api.saveRubric(classId, assignment.id, { rubric })
@@ -75,6 +77,19 @@ export default function AssignmentFormPage() {
               />
             </div>
 
+          </div>
+
+          {/* Rubric section — full width of outer container */}
+          <div className="border-t border-gray-200 pt-6 space-y-4">
+            <h2 className="text-base font-semibold text-gray-800">Rubric</h2>
+            <RubricIngestUploader onRubricExtracted={setRubric} />
+            <RubricEditor rubric={rubric} onChange={setRubric} />
+          </div>
+
+          {/* AI grading options — below the rubric */}
+          <div className="border-t border-gray-200 pt-6 max-w-xl mx-auto space-y-6">
+            <h2 className="text-base font-semibold text-gray-800">AI Grading Options</h2>
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Strictness</label>
               <select
@@ -87,13 +102,17 @@ export default function AssignmentFormPage() {
                 <option value="strict">Strict</option>
               </select>
             </div>
-          </div>
 
-          {/* Rubric section — full width of outer container */}
-          <div className="border-t border-gray-200 pt-6 space-y-4">
-            <h2 className="text-base font-semibold text-gray-800">Rubric</h2>
-            <RubricIngestUploader onRubricExtracted={setRubric} />
-            <RubricEditor rubric={rubric} onChange={setRubric} />
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Additional notes for AI</label>
+              <textarea
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                rows={4}
+                placeholder="Any extra context the AI should consider when grading — e.g. common mistakes to watch for, clarifications on the rubric, or marking conventions specific to this assessment."
+                value={additionalNotes}
+                onChange={(e) => setAdditionalNotes(e.target.value)}
+              />
+            </div>
           </div>
 
           <div className="max-w-xl mx-auto flex gap-3 pt-2">

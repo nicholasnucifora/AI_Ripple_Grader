@@ -9,6 +9,7 @@ class AssignmentCreate(BaseModel):
     description: str = ""
     marking_criteria: str = ""
     strictness: Literal["lenient", "standard", "strict"] = "standard"
+    additional_notes: str = ""
 
 
 class AssignmentUpdate(BaseModel):
@@ -16,6 +17,7 @@ class AssignmentUpdate(BaseModel):
     description: str | None = None
     marking_criteria: str | None = None
     strictness: Literal["lenient", "standard", "strict"] | None = None
+    additional_notes: str | None = None
 
 
 class AssignmentOut(BaseModel):
@@ -25,6 +27,7 @@ class AssignmentOut(BaseModel):
     description: str
     marking_criteria: str
     strictness: str
+    additional_notes: str
     created_by: str
     created_at: datetime
 
