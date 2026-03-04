@@ -84,18 +84,14 @@ function groupCriteria(criteria) {
   return groups
 }
 
-// ---------------------------------------------------------------------------
-// Border style helpers — dashed borders need per-side inline styles because
-// Tailwind's border-dashed applies to all sides at once.
-// ---------------------------------------------------------------------------
-
-const DASHED = '1px dashed #d1d5db' // gray-300
+// Dashed divider — used as inline borderLeft / borderTop so only one side is dashed
+const DASHED = '1px dashed #d1d5db'
 
 // ---------------------------------------------------------------------------
 // RubricGroup — one CSS grid per set of criteria sharing the same level columns
 // ---------------------------------------------------------------------------
 
-function RubricGroup({ group, onUpdate, onDelete, readOnly, onAddRow, onAddColumn }) {
+function RubricGroup({ group, onUpdate, onDelete, readOnly, onAddRow, onAddColumn, onAddBoth }) {
   const { headerLevels, criteria } = group
   const [hoveredId, setHoveredId] = useState(null)
 
@@ -108,18 +104,12 @@ function RubricGroup({ group, onUpdate, onDelete, readOnly, onAddRow, onAddColum
     })
   }
 
-  // +1 for the criterion name column, then N level columns, then (if editable) 1 dashed + column
-  const dataCols = headerLevels.length + 1
-  const colTemplate = !readOnly
-    ? `minmax(140px, 200px) repeat(${headerLevels.length}, 1fr) 2.5rem`
-    : `minmax(140px, 200px) repeat(${headerLevels.length}, 1fr)`
+  const colTemplate = `minmax(140px, 200px) repeat(${headerLevels.length}, 1fr)`
 
-  return (
-    <div
-      className="grid border border-gray-200 rounded-lg overflow-hidden"
-      style={{ gridTemplateColumns: colTemplate }}
-    >
-      {/* ── Header row ── */}
+  // The inner data grid — no + column, no footer row
+  const tableGrid = (
+    <div className="grid min-w-0" style={{ gridTemplateColumns: colTemplate }}>
+      {/* Header row */}
       <div className="px-4 py-2 bg-gray-50 border-b border-gray-200 text-xs font-semibold text-gray-500 uppercase tracking-wide">
         Criterion
       </div>
@@ -129,24 +119,8 @@ function RubricGroup({ group, onUpdate, onDelete, readOnly, onAddRow, onAddColum
           <div className="text-xs text-gray-400">{level.points} pts</div>
         </div>
       ))}
-      {/* Dashed + column header */}
-      {!readOnly && (
-        <div
-          className="bg-gray-50 border-b border-gray-200 flex items-center justify-center"
-          style={{ borderLeft: DASHED }}
-        >
-          <button
-            type="button"
-            onClick={onAddColumn}
-            title="Add column"
-            className="w-full h-full text-gray-400 hover:text-blue-500 hover:bg-blue-50 transition-colors text-sm font-medium"
-          >
-            +
-          </button>
-        </div>
-      )}
 
-      {/* ── Criterion rows ── */}
+      {/* Criterion rows */}
       {criteria.map((criterion, rowIdx) => {
         const isHovered = hoveredId === criterion.id
         const isLast = rowIdx === criteria.length - 1
@@ -156,7 +130,6 @@ function RubricGroup({ group, onUpdate, onDelete, readOnly, onAddRow, onAddColum
 
         return (
           <Fragment key={criterion.id}>
-            {/* Criterion name + weight cell */}
             <div
               className={`relative px-4 py-3 flex flex-col gap-1 ${borderB} ${rowBg} transition-colors`}
               onMouseEnter={() => setHoveredId(criterion.id)}
@@ -190,7 +163,6 @@ function RubricGroup({ group, onUpdate, onDelete, readOnly, onAddRow, onAddColum
               )}
             </div>
 
-            {/* Level description cells */}
             {sortedLevels.map((level) => (
               <div
                 key={level.id}
@@ -205,43 +177,67 @@ function RubricGroup({ group, onUpdate, onDelete, readOnly, onAddRow, onAddColum
                 />
               </div>
             ))}
-
-            {/* Dashed spacer cell in + column */}
-            {!readOnly && (
-              <div
-                className={borderB}
-                style={{ borderLeft: DASHED }}
-              />
-            )}
           </Fragment>
         )
       })}
+    </div>
+  )
 
-      {/* ── Footer row: + add-row button + ++ corner ── */}
-      {!readOnly && (
-        <>
-          {/* + spans all data columns (criterion col + all level cols) */}
-          <button
-            type="button"
-            onClick={onAddRow}
-            title="Add row"
-            style={{ gridColumn: `1 / span ${dataCols}`, borderTop: DASHED }}
-            className="py-1.5 text-sm text-gray-400 hover:text-blue-500 hover:bg-blue-50 transition-colors"
-          >
-            +
-          </button>
-          {/* ++ corner: add row AND column */}
-          <button
-            type="button"
-            onClick={() => { onAddRow(); onAddColumn() }}
-            title="Add row and column"
-            style={{ borderTop: DASHED, borderLeft: DASHED }}
-            className="py-1.5 text-xs font-semibold text-gray-400 hover:text-blue-500 hover:bg-blue-50 transition-colors"
-          >
-            ++
-          </button>
-        </>
-      )}
+  // Read-only: just the grid in a simple border box
+  if (readOnly) {
+    return (
+      <div className="border border-gray-200 rounded-lg overflow-hidden">
+        {tableGrid}
+      </div>
+    )
+  }
+
+  // Editable: outer border box contains a 2×2 flex layout
+  //
+  //  ┌─────────────────────────────┬╌╌╌╌╌╌╌┐
+  //  │         table grid          ┆   +   │  ← col + button (no inner row lines)
+  //  ├╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌┤
+  //  │              +              ┆  ++   │  ← row + and ++ corner
+  //  └─────────────────────────────┴───────┘
+  return (
+    <div className="border border-gray-200 rounded-lg overflow-hidden">
+      {/* Top section: table + column + button side-by-side */}
+      <div className="flex">
+        <div className="flex-1 min-w-0">
+          {tableGrid}
+        </div>
+        {/* Column + button — full table height, no inner row borders */}
+        <button
+          type="button"
+          onClick={onAddColumn}
+          title="Add column"
+          style={{ borderLeft: DASHED }}
+          className="w-10 text-gray-400 hover:text-blue-500 hover:bg-blue-50 transition-colors text-sm font-medium"
+        >
+          +
+        </button>
+      </div>
+
+      {/* Bottom section: row + button + ++ corner */}
+      <div className="flex" style={{ borderTop: DASHED }}>
+        <button
+          type="button"
+          onClick={onAddRow}
+          title="Add row"
+          className="flex-1 py-1.5 text-sm text-gray-400 hover:text-blue-500 hover:bg-blue-50 transition-colors"
+        >
+          +
+        </button>
+        <button
+          type="button"
+          onClick={onAddBoth}
+          title="Add row and column"
+          style={{ borderLeft: DASHED }}
+          className="w-10 py-1.5 text-xs font-semibold text-gray-400 hover:text-blue-500 hover:bg-blue-50 transition-colors"
+        >
+          ++
+        </button>
+      </div>
     </div>
   )
 }
@@ -309,6 +305,36 @@ export default function RubricEditor({ rubric, onChange, readOnly = false }) {
     })
   }
 
+  // Atomic: adds a new row AND a new column in one onChange call so neither overwrites the other
+  function addBothToGroup(group) {
+    const criteriaIds = new Set(group.criteria.map((c) => c.id))
+    const newLevelStub = () => ({ id: crypto.randomUUID(), title: 'New Level', points: 0, description: '' })
+
+    // Add the extra level to all existing criteria in this group
+    const updatedCriteria = rubric.criteria.map((c) => {
+      if (!criteriaIds.has(c.id)) return c
+      return { ...c, levels: [...c.levels, newLevelStub()] }
+    })
+
+    // New criterion matches the group's current levels PLUS the new level
+    const newCriterion = {
+      id: crypto.randomUUID(),
+      name: 'New Criterion',
+      weight_percentage: 0,
+      levels: [
+        ...group.headerLevels.map((l) => ({
+          id: crypto.randomUUID(),
+          title: l.title,
+          points: l.points,
+          description: '',
+        })),
+        newLevelStub(),
+      ],
+    }
+
+    onChange({ ...rubric, criteria: [...updatedCriteria, newCriterion] })
+  }
+
   return (
     <div className="space-y-3">
       {/* Rubric title */}
@@ -334,7 +360,7 @@ export default function RubricEditor({ rubric, onChange, readOnly = false }) {
         </div>
       )}
 
-      {/* One grid per unique level-column set */}
+      {/* One group per unique level-column set */}
       <div className="space-y-5">
         {groups.map((group) => (
           <RubricGroup
@@ -345,6 +371,7 @@ export default function RubricEditor({ rubric, onChange, readOnly = false }) {
             readOnly={readOnly}
             onAddRow={() => addCriterionToGroup(group)}
             onAddColumn={() => addColumnToGroup(group)}
+            onAddBoth={() => addBothToGroup(group)}
           />
         ))}
       </div>
