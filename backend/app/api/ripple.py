@@ -80,16 +80,16 @@ async def import_ripple_csv(
         section_cols = [f for f in fieldnames if f.startswith("Section ")]
         records = []
         for row in rows:
-            sections = [row[col] for col in section_cols if row.get(col, "").strip()]
+            sections = [row[col] for col in section_cols if (row.get(col) or "").strip()]
             records.append(
                 RippleResource(
                     assignment_id=assignment.id,
-                    resource_id=row.get("Resource ID", ""),
-                    primary_author_id=row.get("Primary Author ID", ""),
-                    primary_author_name=row.get("Primary Author", ""),
-                    resource_type=row.get("Resource Type", ""),
-                    resource_status=row.get("Status", ""),
-                    topics=row.get("Topics", ""),
+                    resource_id=row.get("Resource ID") or "",
+                    primary_author_id=row.get("Primary Author ID") or "",
+                    primary_author_name=row.get("Primary Author") or "",
+                    resource_type=row.get("Resource Type") or "",
+                    resource_status=row.get("Status") or "",
+                    topics=row.get("Topics") or "",
                     sections=sections,
                 )
             )
@@ -105,14 +105,14 @@ async def import_ripple_csv(
         rubric_cols = [f for f in fieldnames if f.startswith("Rubric ")]
         records = []
         for row in rows:
-            rubric_scores = {col: row.get(col, "") for col in rubric_cols}
+            rubric_scores = {col: row.get(col) or "" for col in rubric_cols}
             records.append(
                 RippleModeration(
                     assignment_id=assignment.id,
-                    resource_id=row.get("Resource ID", ""),
-                    user_id=row.get("User ID", ""),
-                    role=row.get("Role", ""),
-                    comment=row.get("Comment", ""),
+                    resource_id=row.get("Resource ID") or "",
+                    user_id=row.get("User ID") or "",
+                    role=row.get("Role") or "",
+                    comment=row.get("Comment") or "",
                     rubric_scores=rubric_scores,
                 )
             )
