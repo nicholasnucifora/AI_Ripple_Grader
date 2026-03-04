@@ -93,4 +93,6 @@ export const api = {
     request(`/classes/${classId}/assignments/${assignmentId}/grade/status`),
   getGradeResults: (classId, assignmentId) =>
     request(`/classes/${classId}/assignments/${assignmentId}/grade/results`),
+  getGradeReport: (classId, assignmentId) =>
+    request(`/classes/${classId}/assignments/${assignmentId}/grade/report`),
 }

@@ -62,6 +62,9 @@ def main():
                 db = SessionLocal()
                 try:
                     grade_assignment(assignment_id, db)
+                except Exception:
+                    logger.exception("Unhandled error grading assignment_id=%d", assignment_id)
+                    db.rollback()
                 finally:
                     db.close()
             else:

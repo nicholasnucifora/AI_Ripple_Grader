@@ -20,6 +20,7 @@ export default function AssignmentPage() {
   const [rippleMessage, setRippleMessage] = useState(null) // { ok: bool, text: str }
   const [gradeJob, setGradeJob] = useState(null)
   const [gradeResults, setGradeResults] = useState(null)
+  const [gradeReport, setGradeReport] = useState(null)
   const [expandedResult, setExpandedResult] = useState(null)
 
   useEffect(() => {
@@ -70,6 +71,7 @@ export default function AssignmentPage() {
     if (!active) {
       if (gradeJob.status === 'complete') {
         api.getGradeResults(classId, assignmentId).then(setGradeResults).catch(() => {})
+        api.getGradeReport(classId, assignmentId).then(setGradeReport).catch(() => {})
       }
       return
     }
@@ -79,6 +81,7 @@ export default function AssignmentPage() {
           setGradeJob(job ?? null)
           if (job && job.status === 'complete') {
             api.getGradeResults(classId, assignmentId).then(setGradeResults).catch(() => {})
+            api.getGradeReport(classId, assignmentId).then(setGradeReport).catch(() => {})
           }
         })
         .catch(() => {})
@@ -91,6 +94,7 @@ export default function AssignmentPage() {
       const job = await api.startGrading(classId, assignmentId)
       setGradeJob(job)
       setGradeResults(null)
+      setGradeReport(null)
     } catch (err) {
       alert(err.message)
     }
@@ -111,6 +115,7 @@ export default function AssignmentPage() {
       await api.deleteGrading(classId, assignmentId)
       setGradeJob(null)
       setGradeResults(null)
+      setGradeReport(null)
     } catch (err) {
       alert(err.message)
     }
@@ -219,6 +224,7 @@ export default function AssignmentPage() {
             assignment={assignment}
             gradeJob={gradeJob}
             gradeResults={gradeResults}
+            gradeReport={gradeReport}
             expandedResult={expandedResult}
             setExpandedResult={setExpandedResult}
             onStart={handleStartGrading}
@@ -313,6 +319,7 @@ function AiGradingSection({
   assignment,
   gradeJob,
   gradeResults,
+  gradeReport,
   expandedResult,
   setExpandedResult,
   onStart,
@@ -411,6 +418,7 @@ function AiGradingSection({
               setExpandedResult={setExpandedResult}
             />
           )}
+          {gradeReport && <GradingReport report={gradeReport} />}
         </div>
       )}
 
@@ -501,6 +509,133 @@ function GradeResultsTable({ results, expandedResult, setExpandedResult }) {
           })}
         </tbody>
       </table>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Analytics report — shown below results when grading is complete
+// ---------------------------------------------------------------------------
+
+function PctBar({ pct, colour = 'bg-indigo-500' }) {
+  return (
+    <div className="flex items-center gap-2">
+      <div className="flex-1 bg-gray-200 rounded-full h-2">
+        <div className={`${colour} h-2 rounded-full`} style={{ width: `${Math.min(pct, 100)}%` }} />
+      </div>
+      <span className="text-xs text-gray-500 w-9 text-right">{pct}%</span>
+    </div>
+  )
+}
+
+function GradingReport({ report }) {
+  const { criterion_difficulty, topic_breakdown, peer_ai_agreement } = report
+
+  return (
+    <div className="mt-6 space-y-6 border-t border-gray-100 pt-6">
+
+      {/* 1 — Criterion difficulty */}
+      {criterion_difficulty.length > 0 && (
+        <div>
+          <h3 className="text-sm font-semibold text-gray-700 mb-3">
+            Criterion Difficulty <span className="font-normal text-gray-400">(hardest → easiest)</span>
+          </h3>
+          <div className="space-y-3">
+            {criterion_difficulty.map((c) => {
+              const colour =
+                c.avg_pct < 50 ? 'bg-red-400' : c.avg_pct < 75 ? 'bg-yellow-400' : 'bg-green-400'
+              return (
+                <div key={c.criterion_id}>
+                  <div className="flex justify-between text-xs mb-1">
+                    <span className="font-medium text-gray-700">{c.criterion_name}</span>
+                    <span className="text-gray-500">avg {c.avg_points} / {c.max_points} pts</span>
+                  </div>
+                  <PctBar pct={c.avg_pct} colour={colour} />
+                  <div className="mt-1 flex flex-wrap gap-x-3 text-xs text-gray-400">
+                    {Object.entries(c.level_distribution)
+                      .sort((a, b) => b[1] - a[1])
+                      .map(([lvl, count]) => (
+                        <span key={lvl}>{lvl}: {count}</span>
+                      ))}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* 2 — Topic breakdown */}
+      {topic_breakdown.length > 0 && (
+        <div>
+          <h3 className="text-sm font-semibold text-gray-700 mb-3">Performance by Topic</h3>
+          <table className="w-full text-sm border border-gray-200 rounded-xl overflow-hidden">
+            <thead className="bg-gray-50 text-gray-600 text-xs uppercase">
+              <tr>
+                <th className="px-4 py-2 text-left">Topic</th>
+                <th className="px-4 py-2 text-left">Resources</th>
+                <th className="px-4 py-2 text-left">Avg score</th>
+                <th className="px-4 py-2 text-left w-40">Avg %</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {topic_breakdown.map((t) => {
+                const colour =
+                  t.avg_pct < 50 ? 'bg-red-400' : t.avg_pct < 75 ? 'bg-yellow-400' : 'bg-green-400'
+                return (
+                  <tr key={t.topic} className="bg-white">
+                    <td className="px-4 py-2 text-gray-700">{t.topic}</td>
+                    <td className="px-4 py-2 text-gray-500">{t.count}</td>
+                    <td className="px-4 py-2 text-gray-700">{t.avg_score}</td>
+                    <td className="px-4 py-2 w-40">
+                      <PctBar pct={t.avg_pct} colour={colour} />
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* 3 — Peer vs AI agreement */}
+      {peer_ai_agreement.length > 0 && (
+        <div>
+          <h3 className="text-sm font-semibold text-gray-700 mb-1">Peer vs AI Agreement</h3>
+          <p className="text-xs text-gray-400 mb-3">
+            Peer scores are the raw sum of moderation rubric columns — may use a different scale to AI points.
+          </p>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm border border-gray-200 rounded-xl overflow-hidden">
+              <thead className="bg-gray-50 text-gray-600 text-xs uppercase">
+                <tr>
+                  <th className="px-4 py-2 text-left">Resource</th>
+                  <th className="px-4 py-2 text-left">Author</th>
+                  <th className="px-4 py-2 text-left">AI score</th>
+                  <th className="px-4 py-2 text-left">Peer avg</th>
+                  <th className="px-4 py-2 text-left">Reviewers</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {peer_ai_agreement.map((row) => (
+                  <tr key={row.resource_id} className="bg-white">
+                    <td className="px-4 py-2 font-mono text-gray-700">{row.resource_id}</td>
+                    <td className="px-4 py-2 text-gray-600">{row.primary_author_name || '—'}</td>
+                    <td className="px-4 py-2 text-gray-800">
+                      {row.ai_score} / {row.max_score}
+                      <span className="text-gray-400 text-xs ml-1">({row.ai_pct}%)</span>
+                    </td>
+                    <td className="px-4 py-2 text-gray-700">
+                      {row.peer_avg !== null ? row.peer_avg : <span className="text-gray-400">N/A</span>}
+                    </td>
+                    <td className="px-4 py-2 text-gray-500">{row.peer_count}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

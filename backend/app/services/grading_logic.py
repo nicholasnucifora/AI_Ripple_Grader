@@ -21,7 +21,6 @@ def grade_assignment(assignment_id: int, db: Session) -> None:
     if job is None or job.status == "cancelled":
         return
 
-    # Load rubric
     rubric_row = db.query(Rubric).filter(Rubric.assignment_id == assignment_id).first()
     if rubric_row is None:
         job.status = "error"
@@ -30,23 +29,23 @@ def grade_assignment(assignment_id: int, db: Session) -> None:
         logger.error("No rubric for assignment_id=%d", assignment_id)
         return
 
+    # Copy everything we need out of ORM objects before the first commit
     rubric_dict = json.loads(rubric_row.rubric_json)
 
-    # Load assignment for strictness
     from app.models.assignment import Assignment
     assignment = db.get(Assignment, assignment_id)
     strictness = assignment.strictness if assignment else "standard"
 
-    # Load all resources
-    resources = (
-        db.query(RippleResource)
+    # Load only IDs — plain ints are never "expired" by SQLAlchemy
+    resource_ids = [
+        row[0]
+        for row in db.query(RippleResource.id)
         .filter(RippleResource.assignment_id == assignment_id)
         .all()
-    )
+    ]
 
-    # Already-graded resource ids (idempotency)
     done_ids = {
-        row.ripple_resource_id
+        row[0]
         for row in db.query(GradeResult.ripple_resource_id)
         .filter(
             GradeResult.assignment_id == assignment_id,
@@ -56,22 +55,26 @@ def grade_assignment(assignment_id: int, db: Session) -> None:
     }
 
     job.status = "running"
-    job.total = len(resources)
+    job.total = len(resource_ids)
     job.graded = len(done_ids)
     job.updated_at = datetime.now(timezone.utc)
     db.commit()
 
-    for resource in resources:
-        if resource.id in done_ids:
+    for resource_id in resource_ids:
+        if resource_id in done_ids:
             continue
 
-        # Check for cancellation
-        db.refresh(job)
-        if job.status == "cancelled":
+        # Re-query job each iteration — avoids accessing an expired ORM object
+        job = db.query(GradingJob).filter(GradingJob.assignment_id == assignment_id).first()
+        if job is None or job.status == "cancelled":
             logger.info("Job cancelled for assignment_id=%d", assignment_id)
             return
 
-        # Load matching moderations
+        # Load resource and mods fresh, then copy data out of ORM objects
+        resource = db.get(RippleResource, resource_id)
+        if resource is None:
+            continue
+
         mods = (
             db.query(RippleModeration)
             .filter(
@@ -80,51 +83,58 @@ def grade_assignment(assignment_id: int, db: Session) -> None:
             )
             .all()
         )
+
+        # Copy data out into plain Python values
+        sections = list(resource.sections or [])
+        resource_id_str = resource.resource_id
         mod_list = [{"role": m.role, "comment": m.comment} for m in mods]
+
+        # Commit before the AI call — releases the SQLite read lock so uvicorn
+        # can write freely during the (potentially long) Anthropic API call.
+        db.commit()
 
         try:
             result = ai_service.grade_submission(
-                sections=resource.sections,
+                sections=sections,
                 rubric=rubric_dict,
                 moderations=mod_list,
                 strictness=strictness,
             )
-            grade = GradeResult(
+            db.add(GradeResult(
                 assignment_id=assignment_id,
-                ripple_resource_id=resource.id,
+                ripple_resource_id=resource_id,
                 status="complete",
                 criterion_grades=result["criterion_grades"],
                 overall_feedback=result.get("overall_feedback", ""),
                 graded_at=datetime.now(timezone.utc),
-            )
-            db.add(grade)
-            job.graded += 1
-            logger.info(
-                "Graded resource_id=%s (%d/%d)",
-                resource.resource_id,
-                job.graded,
-                job.total,
-            )
+            ))
+            # Atomic increment — no stale in-memory value possible
+            db.query(GradingJob).filter(GradingJob.assignment_id == assignment_id).update({
+                "graded": GradingJob.graded + 1,
+                "updated_at": datetime.now(timezone.utc),
+            })
+            db.commit()
+            logger.info("Graded resource_id=%s", resource_id_str)
         except Exception as exc:
-            logger.exception("Error grading resource_id=%s: %s", resource.resource_id, exc)
-            grade = GradeResult(
+            logger.exception("Error grading resource_id=%s: %s", resource_id_str, exc)
+            db.rollback()
+            db.add(GradeResult(
                 assignment_id=assignment_id,
-                ripple_resource_id=resource.id,
+                ripple_resource_id=resource_id,
                 status="error",
                 criterion_grades=[],
                 overall_feedback="",
                 error_message=str(exc),
                 graded_at=datetime.now(timezone.utc),
-            )
-            db.add(grade)
-            job.errors += 1
+            ))
+            db.query(GradingJob).filter(GradingJob.assignment_id == assignment_id).update({
+                "errors": GradingJob.errors + 1,
+                "updated_at": datetime.now(timezone.utc),
+            })
+            db.commit()
 
-        job.updated_at = datetime.now(timezone.utc)
-        db.commit()
-
-    # Final status — re-read to confirm not cancelled
-    db.refresh(job)
-    if job.status != "cancelled":
+    job = db.query(GradingJob).filter(GradingJob.assignment_id == assignment_id).first()
+    if job and job.status != "cancelled":
         job.status = "complete"
         job.completed_at = datetime.now(timezone.utc)
         job.updated_at = datetime.now(timezone.utc)
