@@ -15,12 +15,19 @@ export default function AssignmentPage() {
   const [loadingSubmissions, setLoadingSubmissions] = useState(true)
   const [showSubmit, setShowSubmit] = useState(false)
   const [myMemberRole, setMyMemberRole] = useState(null)
+  const [rippleStats, setRippleStats] = useState(null)
+  const [rippleImporting, setRippleImporting] = useState(false)
+  const [rippleMessage, setRippleMessage] = useState(null) // { ok: bool, text: str }
 
   useEffect(() => {
     // Fetch class to determine role
     api.getClass(classId).then((cls) => {
       const m = cls.members.find((mem) => mem.user_id === user?.user_id)
-      setMyMemberRole(m?.role ?? 'student')
+      const role = m?.role ?? 'student'
+      setMyMemberRole(role)
+      if (role === 'teacher') {
+        api.getRippleStats(classId, assignmentId).then(setRippleStats).catch(() => {})
+      }
     })
 
     api.getAssignment(classId, assignmentId)
@@ -31,6 +38,26 @@ export default function AssignmentPage() {
       .then(setSubmissions)
       .finally(() => setLoadingSubmissions(false))
   }, [classId, assignmentId, user])
+
+  async function handleRippleCsvUpload(e) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    e.target.value = ''
+    setRippleImporting(true)
+    setRippleMessage(null)
+    const formData = new FormData()
+    formData.append('file', file)
+    try {
+      const result = await api.importRippleCsv(classId, assignmentId, formData)
+      const label = result.type === 'resource' ? 'Resource' : 'Moderation'
+      setRippleMessage({ ok: true, text: `${label} export — ${result.imported} records imported` })
+      api.getRippleStats(classId, assignmentId).then(setRippleStats).catch(() => {})
+    } catch (err) {
+      setRippleMessage({ ok: false, text: err.message })
+    } finally {
+      setRippleImporting(false)
+    }
+  }
 
   if (loadingAssignment) return <Layout><p className="text-gray-500">Loading…</p></Layout>
   if (!assignment) return <Layout><p className="text-red-600">Assignment not found.</p></Layout>
@@ -90,6 +117,41 @@ export default function AssignmentPage() {
           <section className="bg-white border border-gray-200 rounded-xl p-5 mb-6">
             <h2 className="font-semibold text-gray-800 mb-2">Marking Criteria</h2>
             <p className="text-sm text-gray-700 whitespace-pre-wrap">{assignment.marking_criteria}</p>
+          </section>
+        )}
+
+        {/* RiPPLE Data — teacher only */}
+        {isTeacher && (
+          <section className="bg-white border border-gray-200 rounded-xl p-5 mb-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="font-semibold text-gray-800">RiPPLE Data</h2>
+                {rippleStats && (
+                  <p className="text-sm text-gray-500 mt-0.5">
+                    Resources: {rippleStats.resources} rows · Moderations: {rippleStats.moderations} rows
+                  </p>
+                )}
+                {rippleMessage && (
+                  <p className={`text-sm mt-1 ${rippleMessage.ok ? 'text-green-600' : 'text-red-600'}`}>
+                    {rippleMessage.ok ? '✓ ' : ''}{rippleMessage.text}
+                  </p>
+                )}
+              </div>
+              <label className={`px-3 py-1.5 text-sm rounded-lg cursor-pointer shrink-0 ${
+                rippleImporting
+                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                  : 'bg-indigo-600 text-white hover:bg-indigo-700'
+              }`}>
+                {rippleImporting ? 'Importing…' : 'Upload CSV'}
+                <input
+                  type="file"
+                  accept=".csv"
+                  className="hidden"
+                  disabled={rippleImporting}
+                  onChange={handleRippleCsvUpload}
+                />
+              </label>
+            </div>
           </section>
         )}
 

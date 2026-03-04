@@ -126,6 +126,7 @@ from app.api.classes import router as classes_router  # noqa: E402
 from app.api.assignments import router as assignments_router  # noqa: E402
 from app.api.submissions import router as submissions_router  # noqa: E402
 from app.api.rubrics import rubric_ingest_router, rubric_crud_router  # noqa: E402
+from app.api.ripple import router as ripple_router  # noqa: E402
 
 app.include_router(auth_router)
 app.include_router(classes_router)
@@ -133,6 +134,7 @@ app.include_router(assignments_router)
 app.include_router(submissions_router)
 app.include_router(rubric_ingest_router)
 app.include_router(rubric_crud_router)
+app.include_router(ripple_router)
 
 
 # ---------------------------------------------------------------------------

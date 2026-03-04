@@ -71,4 +71,14 @@ export const api = {
       method: 'PUT',
       body: JSON.stringify(body),
     }),
+
+  // RiPPLE CSV import
+  importRippleCsv: (classId, assignmentId, formData) =>
+    request(`/classes/${classId}/assignments/${assignmentId}/ripple/import`, {
+      method: 'POST',
+      headers: {},
+      body: formData,
+    }),
+  getRippleStats: (classId, assignmentId) =>
+    request(`/classes/${classId}/assignments/${assignmentId}/ripple/stats`),
 }
