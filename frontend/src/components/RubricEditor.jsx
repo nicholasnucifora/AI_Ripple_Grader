@@ -114,11 +114,11 @@ function RubricGroup({ group, onUpdate, onDelete, readOnly, onAddRow, onAddColum
       <div className="px-4 py-2 bg-gray-50 border-b border-gray-200 text-xs font-semibold text-gray-500 uppercase tracking-wide">
         Criterion
       </div>
-      {headerLevels.map((level) => (
+      {headerLevels.map((level, colIdx) => (
         <div
           key={level.id}
           className="relative px-4 py-2 bg-gray-50 border-b border-l border-gray-200"
-          onMouseEnter={() => setHoveredLevelTitle(level.title)}
+          onMouseEnter={() => setHoveredLevelTitle(level.title + colIdx)}
           onMouseLeave={() => setHoveredLevelTitle(null)}
         >
           <div className="text-sm font-semibold text-gray-800">{level.title}</div>
@@ -126,8 +126,8 @@ function RubricGroup({ group, onUpdate, onDelete, readOnly, onAddRow, onAddColum
           {!readOnly && (
             <button
               type="button"
-              onClick={() => onDeleteColumn(level.title)}
-              className={`absolute top-2 right-2 text-gray-400 hover:text-red-500 text-xs transition-opacity ${hoveredLevelTitle === level.title ? 'opacity-100' : 'opacity-0'}`}
+              onClick={() => onDeleteColumn(colIdx)}
+              className={`absolute top-2 right-2 text-gray-400 hover:text-red-500 text-xs transition-opacity ${hoveredLevelTitle === level.title + colIdx ? 'opacity-100' : 'opacity-0'}`}
               title="Remove column"
             >
               ✕
@@ -321,13 +321,16 @@ export default function RubricEditor({ rubric, onChange, readOnly = false }) {
     })
   }
 
-  function deleteColumnFromGroup(group, levelTitle) {
+  function deleteColumnFromGroup(group, colIdx) {
     const criteriaIds = new Set(group.criteria.map((c) => c.id))
     onChange({
       ...rubric,
       criteria: rubric.criteria.map((c) => {
         if (!criteriaIds.has(c.id)) return c
-        return { ...c, levels: c.levels.filter((l) => l.title !== levelTitle) }
+        // Sort the same way as headerLevels to find the level at this column index
+        const sorted = [...c.levels].sort((a, b) => b.points - a.points)
+        const levelToRemove = sorted[colIdx]
+        return { ...c, levels: c.levels.filter((l) => l.id !== levelToRemove.id) }
       }),
     })
   }
