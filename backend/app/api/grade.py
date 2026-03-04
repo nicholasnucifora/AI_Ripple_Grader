@@ -19,6 +19,20 @@ router = APIRouter(
 )
 
 
+def _parse_criterion_grades(val) -> list:
+    """
+    Normalise criterion_grades regardless of how it landed in the DB.
+    Old grading runs may have double-encoded the JSON, leaving a string
+    instead of a list.  Parse it if so.
+    """
+    if isinstance(val, str):
+        try:
+            val = json.loads(val)
+        except (json.JSONDecodeError, ValueError):
+            return []
+    return val or []
+
+
 def _get_assignment_or_404(class_id: int, assignment_id: int, db: Session) -> Assignment:
     assignment = db.get(Assignment, assignment_id)
     if assignment is None or assignment.class_id != class_id:
@@ -151,7 +165,7 @@ def get_grade_report(
     # --- Criterion difficulty ---
     crit_data = {}
     for r in results:
-        for cg in r.criterion_grades or []:
+        for cg in _parse_criterion_grades(r.criterion_grades):
             cid = cg.get("criterion_id", "")
             if not cid:
                 continue
@@ -190,8 +204,8 @@ def get_grade_report(
             continue
         topics_str = resource.topics or ""
         topics = [t.strip() for t in topics_str.split(",") if t.strip()] or ["(no topic)"]
-        ai_total = sum(cg.get("points_awarded", 0) for cg in (r.criterion_grades or []))
-        max_total = sum(max_by_cid.get(cg.get("criterion_id", ""), 0) for cg in (r.criterion_grades or []))
+        ai_total = sum(cg.get("points_awarded", 0) for cg in (_parse_criterion_grades(r.criterion_grades)))
+        max_total = sum(max_by_cid.get(cg.get("criterion_id", ""), 0) for cg in (_parse_criterion_grades(r.criterion_grades)))
         for topic in topics:
             if topic not in topic_data:
                 topic_data[topic] = {"scores": [], "max_scores": []}
@@ -219,8 +233,8 @@ def get_grade_report(
         resource = db.get(RippleResource, r.ripple_resource_id)
         if not resource:
             continue
-        ai_score = sum(cg.get("points_awarded", 0) for cg in (r.criterion_grades or []))
-        max_total = sum(max_by_cid.get(cg.get("criterion_id", ""), 0) for cg in (r.criterion_grades or []))
+        ai_score = sum(cg.get("points_awarded", 0) for cg in (_parse_criterion_grades(r.criterion_grades)))
+        max_total = sum(max_by_cid.get(cg.get("criterion_id", ""), 0) for cg in (_parse_criterion_grades(r.criterion_grades)))
 
         mods = (
             db.query(RippleModeration)
@@ -290,7 +304,7 @@ def get_grade_results(
                 resource_id=resource.resource_id if resource else "",
                 primary_author_name=resource.primary_author_name if resource else "",
                 status=r.status,
-                criterion_grades=r.criterion_grades,
+                criterion_grades=_parse_criterion_grades(r.criterion_grades),
                 overall_feedback=r.overall_feedback,
                 error_message=r.error_message,
                 graded_at=r.graded_at,
